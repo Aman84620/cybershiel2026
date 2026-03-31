@@ -14,22 +14,9 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: (origin, callback) => {
-    const allowed = [
-      process.env.FRONTEND_URL,
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'http://localhost:3000'
-    ].filter(Boolean);
-
-    if (!origin || origin.startsWith('http://localhost:') || allowed.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST'],
-  credentials: true,
+  origin: process.env.FRONTEND_URL || "*", 
+  methods: ["GET", "POST"],
+  credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
