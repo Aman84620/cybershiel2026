@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAnalyses } from '../services/firebase.js';
+import { getAnalyses } from '../services/db.js';
 
 const router = Router();
 

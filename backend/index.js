@@ -6,8 +6,14 @@ import companyRoutes from './routes/company.js';
 import complaintRoutes from './routes/complaint.js';
 import historyRoutes from './routes/history.js';
 import adminRoutes from './routes/admin.js';
+import authRoutes from './routes/auth.js';
+import { verifyToken, requireAdmin, optionalAuth } from './middleware/auth.js';
+import { connectDB } from './config/db.js';
 
 dotenv.config();
+
+// Initialize Database Connection
+connectDB();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,11 +38,12 @@ app.get('/', (req, res) => {
 });
 
 // API Routes
-app.use('/api/analyze', analyzeRoutes);
-app.use('/api/company-check', companyRoutes);
-app.use('/api/complaint', complaintRoutes);
-app.use('/api/history', historyRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/analyze', optionalAuth, analyzeRoutes);
+app.use('/api/company-check', optionalAuth, companyRoutes);
+app.use('/api/complaint', optionalAuth, complaintRoutes);
+app.use('/api/history', optionalAuth, historyRoutes);
+app.use('/api/admin', verifyToken, requireAdmin, adminRoutes);
 
 // Error handling
 app.use((err, req, res, next) => {

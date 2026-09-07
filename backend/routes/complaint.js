@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { saveComplaint } from '../services/firebase.js';
+import { saveComplaint } from '../services/db.js';
 import { sendComplaintEmail } from '../services/email.js';
 
 const router = Router();

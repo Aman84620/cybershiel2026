@@ -3,7 +3,7 @@ import multer from 'multer';
 import { analyzeWithAI } from '../services/gemini.js';
 import { verifyCompany } from '../services/whois.js';
 import { extractTextFromImage, extractTextFromPDF } from '../services/ocr.js';
-import { saveAnalysis } from '../services/firebase.js';
+import { saveAnalysis } from '../services/db.js';
 import { checkMalware } from '../services/malware.js';
 
 const router = Router();

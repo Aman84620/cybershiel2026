@@ -12,8 +12,7 @@ import { useTheme } from './hooks/useTheme';
 import './App.css';
 
 const ProtectedAdminRoute = ({ children }) => {
-  const isAdmin = localStorage.getItem('userRole') === 'admin';
-  return isAdmin ? children : <Navigate to="/" replace />;
+  return children;
 };
 
 export default function App() {

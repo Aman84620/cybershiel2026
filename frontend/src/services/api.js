@@ -1,10 +1,35 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+export const getToken = () => localStorage.getItem('jwt_token') || sessionStorage.getItem('jwt_token');
+
+export const setAuthToken = (token, remember = true) => {
+  if (remember) {
+    localStorage.setItem('jwt_token', token);
+  } else {
+    sessionStorage.setItem('jwt_token', token);
+  }
+};
+
+export const removeAuthToken = () => {
+  localStorage.removeItem('jwt_token');
+  sessionStorage.removeItem('jwt_token');
+  localStorage.removeItem('jwt_user');
+  localStorage.removeItem('userRole');
+};
+
 async function request(endpoint, options = {}) {
   const url = `${API_URL}${endpoint}`;
+  const token = getToken();
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...(options.headers || {}),
+  };
+
   const config = {
-    headers: { 'Content-Type': 'application/json' },
     ...options,
+    headers,
   };
 
   // Don't set Content-Type for FormData
@@ -19,6 +44,49 @@ async function request(endpoint, options = {}) {
   }
   return response.json();
 }
+
+export const loginUser = async (credentials) => {
+  const data = await request('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+  });
+  if (data?.token) {
+    setAuthToken(data.token);
+    if (data.user) {
+      localStorage.setItem('jwt_user', JSON.stringify(data.user));
+      localStorage.setItem('userRole', data.user.role || 'user');
+    }
+  }
+  return data;
+};
+
+export const registerUser = async (userData) => {
+  const data = await request('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(userData),
+  });
+  if (data?.token) {
+    setAuthToken(data.token);
+    if (data.user) {
+      localStorage.setItem('jwt_user', JSON.stringify(data.user));
+      localStorage.setItem('userRole', data.user.role || 'user');
+    }
+  }
+  return data;
+};
+
+export const logoutUser = () => {
+  removeAuthToken();
+};
+
+export const fetchCurrentUser = async () => {
+  try {
+    return await request('/auth/me', { method: 'GET' });
+  } catch (err) {
+    removeAuthToken();
+    return null;
+  }
+};
 
 export const analyzeContent = async (formData) => {
   try {

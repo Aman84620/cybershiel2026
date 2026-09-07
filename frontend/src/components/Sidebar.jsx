@@ -4,23 +4,25 @@ import {
   Shield, ScanSearch, History, FileWarning, Settings,
   Sun, Moon, ChevronLeft, ChevronRight, Zap, ShieldCheck, LayoutDashboard, LogOut
 } from 'lucide-react';
+import { getToken, logoutUser } from '../services/api';
 import './Sidebar.css';
 
 const navItems = [
-  { path: '/dashboard', icon: LayoutDashboard, label: 'Admin Dashboard', id: 'nav-dashboard', adminOnly: true },
-  { path: '/scanner', icon: ScanSearch, label: 'Threat Scanner', id: 'nav-scanner', clientOnly: true },
-  { path: '/verify-company', icon: ShieldCheck, label: 'Verify Company', id: 'nav-verify', clientOnly: true },
-  { path: '/history', icon: History, label: 'Scan History', id: 'nav-history', clientOnly: true },
-  { path: '/about', icon: Shield, label: 'About', id: 'nav-about', clientOnly: true },
-  { path: '/', icon: LogOut, label: 'Logout', id: 'nav-logout' },
+  { path: '/dashboard', icon: LayoutDashboard, label: 'Admin Portal', id: 'nav-dashboard' },
+  { path: '/scanner', icon: ScanSearch, label: 'Threat Scanner', id: 'nav-scanner' },
+  { path: '/verify-company', icon: ShieldCheck, label: 'Verify Company', id: 'nav-verify' },
+  { path: '/history', icon: History, label: 'Scan History', id: 'nav-history' },
+  { path: '/about', icon: Shield, label: 'About', id: 'nav-about' },
 ];
 
 export default function Sidebar({ theme, toggleTheme, collapsed, setCollapsed }) {
-  const isAdmin = localStorage.getItem('userRole') === 'admin';
-  const visibleNavItems = navItems.filter(item => {
-    if (isAdmin) return item.adminOnly || item.path === '/';
-    return item.clientOnly || item.path === '/';
-  });
+  const userRole = localStorage.getItem('userRole');
+  const token = getToken();
+
+  const handleLogout = () => {
+    logoutUser();
+    window.location.href = '/';
+  };
 
   return (
     <>
@@ -41,12 +43,11 @@ export default function Sidebar({ theme, toggleTheme, collapsed, setCollapsed })
 
         {/* Navigation */}
         <nav className="sidebar-nav">
-          {visibleNavItems.map(item => (
+          {navItems.map(item => (
             <NavLink
               key={item.path}
               to={item.path}
               id={item.id}
-              onClick={() => item.path === '/' && localStorage.removeItem('userRole')}
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             >
               <item.icon size={20} />
@@ -54,6 +55,16 @@ export default function Sidebar({ theme, toggleTheme, collapsed, setCollapsed })
               {!collapsed && <div className="nav-indicator" />}
             </NavLink>
           ))}
+          {token && (
+            <button
+              className="nav-item"
+              onClick={handleLogout}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', color: '#ef4444' }}
+            >
+              <LogOut size={20} />
+              {!collapsed && <span>Sign Out</span>}
+            </button>
+          )}
         </nav>
 
         {/* Status Panel */}

@@ -1,49 +1,83 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Lock, Activity, ChevronRight, Fingerprint, Database, Cpu, UserCircle, ShieldAlert } from 'lucide-react';
+import { Shield, Lock, Activity, ChevronRight, Fingerprint, Database, Cpu, UserCircle, ShieldAlert, Mail, User, KeyRound } from 'lucide-react';
+import { loginUser, registerUser } from '../services/api';
 import './LandingPage.css';
 
 export default function LandingPage() {
   const navigate = useNavigate();
   const [showLogin, setShowLogin] = useState(false);
-  const [loginType, setLoginType] = useState('client'); // 'client' or 'admin'
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [authRole, setAuthRole] = useState('user'); // 'user' or 'admin'
+  const [authTab, setAuthTab] = useState('signin'); // 'signin' or 'signup'
+  
+  // Form State
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const openModal = (type) => {
-    setLoginType(type);
+  const openModal = (role = 'user', tab = 'signin') => {
+    setAuthRole(role);
+    setAuthTab(tab);
+    setErrorMessage('');
+    setUsername('');
+    setEmail(role === 'admin' ? 'admin@cybershield.com' : '');
+    setPassword(role === 'admin' ? 'admin123' : '');
     setShowLogin(true);
   };
 
-  const handleDemoLogin = (e) => {
+  const handleAuthSubmit = async (e) => {
     e.preventDefault();
-    setIsLoggingIn(true);
-    setTimeout(() => {
-      setIsLoggingIn(false);
-      localStorage.setItem('userRole', loginType);
-      if (loginType === 'admin') {
+    setErrorMessage('');
+    setIsSubmitting(true);
+
+    try {
+      if (authRole === 'admin') {
+        // Admin Sign In
+        const data = await loginUser({ email, password });
+        if (data?.user?.role !== 'admin') {
+          throw new Error('Unauthorized. Administrator credentials required.');
+        }
+        setShowLogin(false);
         navigate('/dashboard');
+      } else if (authTab === 'signup') {
+        // User Sign Up
+        await registerUser({ username, email, password });
+        setShowLogin(false);
+        navigate('/scanner');
       } else {
+        // User Sign In
+        await loginUser({ email, password });
+        setShowLogin(false);
         navigate('/scanner');
       }
-    }, 1500); // Simulate authenticating delay
+    } catch (err) {
+      setErrorMessage(err.message || 'Authentication failed. Please check your credentials.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="landing-page">
-      {/* Animated Matrix/Cyber Background Elements are handled globally by MatrixBackground, 
-          but we overlay marketing content here */}
-      
       <div className="landing-content">
-        {/* Navigation / Header simple */}
+        {/* Navigation / Header */}
         <header className="landing-header">
           <div className="logo-area">
             <Shield size={28} className="text-primary glow-icon" />
             <span className="logo-text-large">CyberTrust <span className="logo-badge">AI</span></span>
           </div>
-          <div className="header-actions">
-            <button className="btn-outline glow-on-hover admin-login-btn" onClick={() => openModal('admin')}>
-              <ShieldAlert size={18} className="icon-left" /> Admin
+          <div className="header-actions" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <button className="btn-outline glow-on-hover" onClick={() => openModal('user', 'signin')}>
+              Sign In
+            </button>
+            <button className="btn-primary cyber-btn" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }} onClick={() => openModal('user', 'signup')}>
+              Sign Up
+            </button>
+            <button className="btn-outline glow-on-hover admin-login-btn" onClick={() => openModal('admin', 'signin')}>
+              <ShieldAlert size={16} className="icon-left" /> Admin
             </button>
           </div>
         </header>
@@ -55,33 +89,116 @@ export default function LandingPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => !isLoggingIn && setShowLogin(false)}
+              onClick={() => !isSubmitting && setShowLogin(false)}
             >
               <motion.div 
-                className={`login-modal glass-card ${loginType === 'admin' ? 'admin-theme' : ''}`}
+                className={`login-modal glass-card ${authRole === 'admin' ? 'admin-theme' : ''}`}
                 initial={{ scale: 0.9, y: 20 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.9, y: 20 }}
                 onClick={(e) => e.stopPropagation()}
+                style={{ width: '90%', maxWidth: '440px', padding: '2rem', borderRadius: '16px' }}
               >
-                <div className="modal-header">
-                  {loginType === 'admin' ? <ShieldAlert size={28} className="text-danger" /> : <Shield size={28} className="text-primary" />}
-                  <h2>{loginType === 'admin' ? 'ADMIN COMMAND CENTER' : 'SECURED CLIENT ACCESS'}</h2>
+                <div className="modal-header" style={{ marginBottom: '1.25rem', textAlign: 'center' }}>
+                  {authRole === 'admin' ? <ShieldAlert size={32} className="text-danger" style={{ margin: '0 auto 0.5rem' }} /> : <Shield size={32} className="text-primary" style={{ margin: '0 auto 0.5rem' }} />}
+                  <h2 style={{ fontSize: '1.4rem', margin: 0 }}>
+                    {authRole === 'admin' ? 'ADMINISTRATOR PORTAL' : authTab === 'signup' ? 'CREATE SECURE ACCOUNT' : 'USER SIGN IN'}
+                  </h2>
                 </div>
-                <form onSubmit={handleDemoLogin} className="login-form">
-                  <div className="form-group">
-                    <label className="mono"><Fingerprint size={14} /> EMAIL_ADDRESS</label>
-                    <input type="email" className="input-field" placeholder={loginType === 'admin' ? "admin@cybertrust.com" : "client@domain.com"} defaultValue={loginType === 'admin' ? "admin@cybertrust.com" : "client@domain.com"} required />
+
+                {authRole !== 'admin' && (
+                  <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '8px', marginBottom: '1.25rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => { setAuthTab('signin'); setErrorMessage(''); }}
+                      style={{
+                        flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                        background: authTab === 'signin' ? 'rgba(0, 255, 136, 0.2)' : 'transparent',
+                        color: authTab === 'signin' ? '#00ff88' : 'rgba(255,255,255,0.6)', fontWeight: 'bold'
+                      }}
+                    >
+                      Sign In
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setAuthTab('signup'); setErrorMessage(''); }}
+                      style={{
+                        flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                        background: authTab === 'signup' ? 'rgba(0, 255, 136, 0.2)' : 'transparent',
+                        color: authTab === 'signup' ? '#00ff88' : 'rgba(255,255,255,0.6)', fontWeight: 'bold'
+                      }}
+                    >
+                      Sign Up
+                    </button>
                   </div>
+                )}
+
+                {errorMessage && (
+                  <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#ef4444', padding: '0.75rem', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '1rem', textAlign: 'center' }}>
+                    {errorMessage}
+                  </div>
+                )}
+
+                <form onSubmit={handleAuthSubmit} className="login-form" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {authRole !== 'admin' && authTab === 'signup' && (
+                    <div className="form-group">
+                      <label className="mono" style={{ fontSize: '0.75rem', color: '#00ff88', marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <User size={14} /> FULL NAME / USERNAME
+                      </label>
+                      <input 
+                        type="text" 
+                        className="input-field" 
+                        placeholder="John Doe" 
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        required 
+                      />
+                    </div>
+                  )}
+
                   <div className="form-group">
-                    <label className="mono"><Lock size={14} /> PASSWORD</label>
-                    <input type="password" className="input-field" placeholder="••••••••" defaultValue={loginType === 'admin' ? "admin123" : "secure1"} required />
+                    <label className="mono" style={{ fontSize: '0.75rem', color: authRole === 'admin' ? '#ef4444' : '#00ff88', marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Mail size={14} /> {authRole === 'admin' ? 'ADMIN EMAIL ADDRESS' : 'EMAIL ADDRESS'}
+                    </label>
+                    <input 
+                      type="email" 
+                      className="input-field" 
+                      placeholder={authRole === 'admin' ? "admin@cybershield.com" : "user@example.com"} 
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required 
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="mono" style={{ fontSize: '0.75rem', color: authRole === 'admin' ? '#ef4444' : '#00ff88', marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Lock size={14} /> PASSWORD
+                    </label>
+                    <input 
+                      type="password" 
+                      className="input-field" 
+                      placeholder="••••••••" 
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required 
+                    />
                   </div>
                   
-                  <button type="submit" className={`btn ${loginType === 'admin' ? 'btn-danger' : 'btn-primary'} login-btn`} disabled={isLoggingIn}>
-                    {isLoggingIn ? 'AUTHENTICATING...' : 'AUTHORIZE LOGIN'}
+                  <button 
+                    type="submit" 
+                    className={`btn ${authRole === 'admin' ? 'btn-danger' : 'btn-primary'} login-btn`} 
+                    disabled={isSubmitting}
+                    style={{ marginTop: '0.5rem', padding: '0.75rem', fontWeight: 'bold' }}
+                  >
+                    {isSubmitting ? 'AUTHENTICATING...' : authRole === 'admin' ? 'AUTHORIZE ADMIN ACCESS' : authTab === 'signup' ? 'REGISTER ACCOUNT' : 'SIGN IN'}
                   </button>
                 </form>
+
+                {authRole === 'admin' && (
+                  <p style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>
+                    Configured admin email: <span style={{ color: '#fff', fontFamily: 'monospace' }}>admin@cybershield.com</span>
+                  </p>
+                )}
               </motion.div>
             </motion.div>
           )}

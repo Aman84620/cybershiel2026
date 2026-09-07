@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Activity, ShieldAlert, CheckCircle, Shield, 
-  Search, Users, RefreshCw, AlertTriangle
+  Search, Users, RefreshCw, AlertTriangle, Lock, Key, LogOut, LogIn
 } from 'lucide-react';
 import { 
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
+import { getToken, loginUser, logoutUser } from '../services/api';
 import './AdminDashboard.css';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -27,15 +28,38 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Auth state
+  const [isAuthenticated, setIsAuthenticated] = useState(!!getToken());
+  const [email, setEmail] = useState('admin@cybershield.com');
+  const [password, setPassword] = useState('admin123');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+
   const fetchDashboardData = async () => {
+    const token = getToken();
+    if (!token) {
+      setIsAuthenticated(false);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
+      const headers = { 'Authorization': `Bearer ${token}` };
       const [statsRes, actRes, compRes] = await Promise.all([
-        fetch(`${VITE_API_URL}/admin/stats`),
-        fetch(`${VITE_API_URL}/admin/activity`),
-        fetch(`${VITE_API_URL}/admin/complaints`)
+        fetch(`${VITE_API_URL}/admin/stats`, { headers }),
+        fetch(`${VITE_API_URL}/admin/activity`, { headers }),
+        fetch(`${VITE_API_URL}/admin/complaints`, { headers })
       ]);
 
+      if (statsRes.status === 401 || statsRes.status === 403) {
+        setIsAuthenticated(false);
+        logoutUser();
+        setLoading(false);
+        return;
+      }
+
+      setIsAuthenticated(true);
       const localScans = JSON.parse(localStorage.getItem('localScans') || '[]');
 
       let loadedStats = { overview: { totalAnalyzed: 0, scamsDetected: 0, safeCount: 0, totalComplaints: 0 }, distribution: [], trends: [] };
@@ -92,12 +116,102 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthLoading(true);
+    try {
+      const data = await loginUser({ email, password });
+      if (data?.user?.role !== 'admin') {
+        throw new Error('Unauthorized. Administrator email required.');
+      }
+      setIsAuthenticated(true);
+      fetchDashboardData();
+    } catch (err) {
+      setAuthError(err.message || 'Authentication failed. Invalid administrator credentials.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    logoutUser();
+    setIsAuthenticated(false);
+  };
+
   useEffect(() => {
     fetchDashboardData();
     // Simulate real-time updates
     const interval = setInterval(fetchDashboardData, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  if (!isAuthenticated) {
+    return (
+      <div className="admin-loading" style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <motion.div 
+          className="glass-card" 
+          initial={{ opacity: 0, scale: 0.9 }} 
+          animate={{ opacity: 1, scale: 1 }}
+          style={{ maxWidth: '420px', width: '90%', padding: '2.5rem', borderRadius: '16px', border: '1px solid rgba(239, 68, 68, 0.3)', background: 'rgba(20, 10, 15, 0.85)' }}
+        >
+          <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'inline-flex', padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '50%', marginBottom: '1rem' }}>
+              <Lock size={32} color={COLORS.danger} />
+            </div>
+            <h2 className="mono neon-text" style={{ fontSize: '1.5rem', margin: 0, color: '#ef4444' }}>ADMINISTRATOR PORTAL</h2>
+            <p style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.6)', marginTop: '0.5rem' }}>Restricted Access — Authorized Administrator Credentials Required</p>
+          </div>
+
+          {authError && (
+            <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#ef4444', padding: '0.75rem', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '1rem', textAlign: 'center' }}>
+              {authError}
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontFamily: 'monospace', color: COLORS.danger, marginBottom: '0.4rem' }}>ADMIN EMAIL ADDRESS</label>
+              <input 
+                type="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@cybershield.com"
+                required
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.95rem' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontFamily: 'monospace', color: COLORS.danger, marginBottom: '0.4rem' }}>PASSWORD</label>
+              <input 
+                type="password" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.95rem' }}
+              />
+            </div>
+
+            <button 
+              type="submit" 
+              disabled={authLoading}
+              className="btn btn-danger"
+              style={{ width: '100%', marginTop: '0.5rem', padding: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: COLORS.danger, color: '#fff', fontWeight: 'bold', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+            >
+              {authLoading ? <RefreshCw className="animate-spin" size={18} /> : <Key size={18} />}
+              <span>{authLoading ? 'VERIFYING CREDENTIALS...' : 'AUTHORIZE ADMIN ACCESS'}</span>
+            </button>
+          </form>
+
+          <div style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.4)' }}>
+            Admin Email: <span style={{ color: '#fff', fontFamily: 'monospace' }}>admin@cybershield.com</span>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (loading && !stats) {
     return (
@@ -121,11 +235,16 @@ export default function AdminDashboard() {
       <motion.header className="dashboard-header" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
         <div>
           <h1 className="section-title">COMMAND CENTER</h1>
-          <p className="section-subtitle">Real-time threat monitoring and system analytics</p>
+          <p className="section-subtitle">Real-time threat monitoring and system analytics (JWT Secured)</p>
         </div>
-        <button className="btn btn-ghost sync-btn" onClick={fetchDashboardData}>
-          <RefreshCw size={16} /> <span>SYNC_DATA</span>
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button className="btn btn-ghost sync-btn" onClick={fetchDashboardData}>
+            <RefreshCw size={16} /> <span>SYNC_DATA</span>
+          </button>
+          <button className="btn btn-ghost sync-btn" onClick={handleLogout} style={{ borderColor: 'rgba(239, 68, 68, 0.4)', color: '#ef4444' }}>
+            <LogOut size={16} /> <span>LOGOUT</span>
+          </button>
+        </div>
       </motion.header>
 
       {/* METRICS ROW */}
